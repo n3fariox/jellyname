@@ -75,7 +75,7 @@ def tv_argparser(tv_p: argparse.ArgumentParser):
         type=Path,
         help="Should be jellyfin shows dir",
     )
-    default_tv_format = "{name} ({first_year}) [tmdbid-{tmdb_id}]/Season {season_num:02}/ {name} S{season_num:02}E{episode_num:02}.mkv"
+    default_tv_format = "{name} ({first_year}) [tmdbid-{tmdb_id}]/Season {season_num:02}/{name} S{season_num:02}E{episode_num:02}.mkv"
     tv_p.add_argument(
         "--format",
         default=default_tv_format,

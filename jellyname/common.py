@@ -17,6 +17,9 @@ def fix_title(title: str):
     title = title.lower()
     if title.endswith(", the"):
         title = "the " + title[:-5]
+
+    title = title.replace("- blu-ray", "")
+    title = title.replace("blu-ray", "")
     return title
 
 
