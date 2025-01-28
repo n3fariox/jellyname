@@ -1,17 +1,13 @@
+import itertools
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import tmdbsimple as tmdb
-from prompt_toolkit import prompt
-from prompt_toolkit.shortcuts import (
-    radiolist_dialog,
-    input_dialog,
-    yes_no_dialog,
-    button_dialog,
-)
+from prompt_toolkit.shortcuts import button_dialog, input_dialog, radiolist_dialog
 from pymkv import MKVFile
-from .common import ProcessedFile, rename_file
+
+from .common import ProcessedFile, guess_title, rename_file
 
 
 @dataclass
@@ -51,15 +47,19 @@ def identify_tv_show(
 ) -> Optional[Tuple[TVShow, TVSeason]]:
     search_term = title
     if title is None or manual:
+        default_text = ""
         if title:
-            query_text = f"Title: {title}\nFile:s{filename}\nEnter search criteria:"
+            query_text = f"Title: {title}\nFile: {filename}\nEnter search criteria:"
+            default_text = title
         else:
             query_text = f"No title for\n{filename}\nEnter search criteria:"
+            default_text = guess_title(filename)
         maybe = input_dialog(
             title="Search",
             text=query_text,
             ok_text="Enter",
             cancel_text="Skip",
+            default=default_text,
         ).run()
         if maybe is None:
             return None, None
@@ -125,11 +125,18 @@ def identify_tv_show(
     return result, season
 
 
+def get_supported_files(directory: Path) -> List[Path]:
+    return [
+        x for x in itertools.chain(directory.glob("*.mkv"), directory.glob("*.mp4"))
+    ]
+
+
 def process_tv_dir(
     output_dir: Path,
     out_format: str,
     input_directory: Path,
     start_episode: int = 0,
+    dry_run: bool = False,
 ) -> List[ProcessedTvFile]:
     """Process a ripped TV show directory.
     This flow is a little different, everything in the directory should be the same show.
@@ -142,7 +149,8 @@ def process_tv_dir(
     tv_season = None
     file_actions = []
     episode_num = start_episode
-    for filename in input_directory.glob("*.mkv"):
+    episodes = sorted(get_supported_files(input_directory))
+    for filename in episodes:
         if not filename.is_file():
             continue
         file = MKVFile(filename)
@@ -161,8 +169,9 @@ def process_tv_dir(
                 tmdb_id=tv_show.tmdb_id,
                 season_num=tv_season.season_number,
                 episode_num=0,
+                ext=filename.suffix[1:],  # we don't want the "period"
             )
-            episode_num = len(list(maybe_dst.parent.glob("*.mkv"))) + 1
+            episode_num = len(get_supported_files(maybe_dst.parent)) + 1
             print(f"Starting with episode {episode_num:02}")
 
         dst = output_dir / out_format.format(
@@ -171,6 +180,7 @@ def process_tv_dir(
             tmdb_id=tv_show.tmdb_id,
             season_num=tv_season.season_number,
             episode_num=episode_num,
+            ext=filename.suffix[1:],  # we don't want the "period"
         )
 
         approved = button_dialog(
@@ -184,5 +194,11 @@ def process_tv_dir(
             continue
         if approved:
             rename_file(
-                ProcessedTvFile(src=filename, dst=dst, approved=True, show=tv_show)
+                ProcessedTvFile(src=filename, dst=dst, approved=True, show=tv_show),
+                dry_run=dry_run,
             )
+
+    try:
+        input_directory.rmdir()
+    except:
+        pass

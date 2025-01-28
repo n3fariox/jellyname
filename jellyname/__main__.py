@@ -8,45 +8,51 @@ import tmdbsimple as tmdb
 from prompt_toolkit.shortcuts import yes_no_dialog
 
 from . import common, movies, shows
+from .filters import Filters
+
+
+def make_filters(args):
+    filters = Filters()
+    if args.filter_lang:
+        filters.lang = args.filter_lang.lower()
+    return filters
 
 
 def movie_logic(args):
     paths = []
+    filters = make_filters(args)
     for pattern in args.files:
         paths.extend(glob(pattern, recursive=True))
 
     for filename in paths:
-        res = movies.process_movie_file(args.output, args.format, Path(filename))
+        res = movies.process_movie_file(
+            args.output, args.format, Path(filename), filters=filters
+        )
         if res is None:
             print(f"Failed processing file: {filename}")
             continue
 
         if res.approved:
-            common.rename_file(res)
-            try:
-                res.src.parent.rmdir()
-            except:
-                pass
-
+            common.rename_file(res, args.dry_run)
         elif yes_no_dialog(
             text=f"Sure you want to delete?\n{res.src}",
         ).run():
             res.src.unlink()
 
-    print("Removing empty folders from the input")
-    for folder in args.output.iterdir():
-        if folder.is_dir() and not any(folder.iterdir()):
-            print(f"Removing {folder}")
-            folder.rmdir()
+        try:
+            if not args.dry_run:
+                res.src.parent.rmdir()
+        except:
+            pass
 
 
 def tv_logic(args):
     for directory in args.directories:
-        check = shows.process_tv_dir(args.output, args.format, Path(directory))
+        check = shows.process_tv_dir(args.output, args.format, Path(directory), dry_run=args.dry_run)
 
 
 def movie_argparser(movies_p: argparse.ArgumentParser):
-    default_movie_format = "{title} ({year}) [tmdbid-{tmdb_id}]/{title} ({year}) [tmdbid-{tmdb_id}]{tag}.mkv"
+    default_movie_format = "{title} ({year}) [tmdbid-{tmdb_id}]/{title} ({year}) [tmdbid-{tmdb_id}]{tag}.{ext}"
     movies_p.add_argument(
         "--format",
         default=default_movie_format,
@@ -75,7 +81,7 @@ def tv_argparser(tv_p: argparse.ArgumentParser):
         type=Path,
         help="Should be jellyfin shows dir",
     )
-    default_tv_format = "{name} ({first_year}) [tmdbid-{tmdb_id}]/Season {season_num:02}/{name} S{season_num:02}E{episode_num:02}.mkv"
+    default_tv_format = "{name} ({first_year}) [tmdbid-{tmdb_id}]/Season {season_num:02}/{name} S{season_num:02}E{episode_num:02}.{ext}"
     tv_p.add_argument(
         "--format",
         default=default_tv_format,
@@ -100,6 +106,12 @@ def main():
         "--dry-run",
         action="store_true",
         help="Don't actually move or delete files",
+    )
+    parser.add_argument(
+        "-l",
+        "--filter-lang",
+        type=str,
+        help="Original language of movies to filter by",
     )
     parser.add_argument("-k", "--api-key", type=str, help="TMDB api key to use")
     subp = parser.add_subparsers(dest="cmd")

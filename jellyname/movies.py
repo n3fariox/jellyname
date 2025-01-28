@@ -3,14 +3,11 @@ from pathlib import Path
 from typing import Optional
 
 import tmdbsimple as tmdb
-from prompt_toolkit.shortcuts import (
-    button_dialog,
-    input_dialog,
-    radiolist_dialog,
-)
+from prompt_toolkit.shortcuts import button_dialog, input_dialog, radiolist_dialog
 from pymkv import MKVFile
 
-from .common import fix_title, ProcessedFile
+from .common import ProcessedFile, fix_title, guess_title
+from .filters import DefaultFilters, Filters
 
 
 @dataclass
@@ -20,7 +17,7 @@ class Movie:
     tmdb_id: str
 
     def __str__(self):
-        return f"{self.title} ({self.year})"
+        return f"{self.title} ({self.year}) [tmdb-{self.tmdb_id}]"
 
 
 @dataclass
@@ -28,20 +25,26 @@ class ProcessedMovieFile(ProcessedFile):
     movie: Movie
 
 
-def find_match(movie: MKVFile, filename: Path, manual: bool = False) -> Optional[Movie]:
+def find_match(
+    movie: MKVFile, filename: Path, manual: bool = False, filters=DefaultFilters
+) -> Optional[Movie]:
     search_term = movie.title
     if movie.title is None or manual:
+        default_text = ""
         if movie.title:
             query_text = (
-                f"Title: {movie.title}\nFile:s{filename}\nEnter search criteria:"
+                f"Title: {movie.title}\nFile: {filename}\nEnter search criteria:"
             )
+            default_text = movie.title
         else:
             query_text = f"No title for\n{filename}\nEnter search criteria:"
+            default_text = guess_title(filename)
         maybe = input_dialog(
             title="Search",
             text=query_text,
             ok_text="Enter",
             cancel_text="Skip",
+            default=default_text,
         ).run()
         if maybe is None:
             return None
@@ -58,6 +61,13 @@ def find_match(movie: MKVFile, filename: Path, manual: bool = False) -> Optional
 
     movies = []
     for s in search.results:
+        if (
+            filters.lang
+            and "original_language" in s
+            and s["original_language"].lower() != filters.lang
+        ):
+            continue
+
         year = s.get("release_date", "...").split("-")[0]
         movies.append(
             Movie(
@@ -83,7 +93,10 @@ def find_match(movie: MKVFile, filename: Path, manual: bool = False) -> Optional
 
 
 def process_movie_file(
-    output_dir: Path, out_format: str, filename: Path
+    output_dir: Path,
+    out_format: str,
+    filename: Path,
+    filters: Filters = DefaultFilters,
 ) -> ProcessedMovieFile:
     file = MKVFile(filename)
     if not file.title:
@@ -91,17 +104,21 @@ def process_movie_file(
     else:
         file.title = fix_title(file.title)
 
-    match = find_match(file, filename)
+    match = find_match(file, filename, filters=filters)
     if match is None:
         print(f"No match for file: {filename}")
         return
 
     default_tag = ""
     maybe_dst = output_dir / out_format.format(
-        title=match.title, year=match.year, tag="", tmdb_id=match.tmdb_id
+        title=match.title,
+        year=match.year,
+        tag="",
+        tmdb_id=match.tmdb_id,
+        ext=filename.suffix[1:],
     )
     if maybe_dst.exists():
-        default_tag = f"CD{len(list(maybe_dst.parent.glob('*.mkv')))}"
+        default_tag = f"CD{len(list(maybe_dst.parent.glob(f'*{filename.suffix}')))}"
 
     tag = input_dialog(
         title="Optional Tag",
@@ -116,7 +133,11 @@ def process_movie_file(
 
     src = filename
     dst = output_dir / out_format.format(
-        title=match.title, year=match.year, tag=tag, tmdb_id=match.tmdb_id
+        title=match.title,
+        year=match.year,
+        tag=tag,
+        tmdb_id=match.tmdb_id,
+        ext=src.suffix[1:],
     )
 
     approved = button_dialog(

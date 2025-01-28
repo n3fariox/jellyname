@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import prompt_toolkit as pt
+from pymkv import MKVFile
 
 
 @dataclass
@@ -22,6 +23,21 @@ def fix_title(title: str):
     title = title.replace("blu-ray", "")
     return title
 
+
+def guess_title(filename: Path):
+    cleaned = filename.parent.parts[-1].lower()
+    cleaned = cleaned.replace("_", " ")
+    return cleaned
+
+
+def guess_mkv_format(movie: MKVFile):
+    video_tracks = [x for x in movie._info_json["tracks"] if x["type"] == "video"]
+    if not video_tracks:
+        return None
+    _, horizontal = video_tracks[0]["properties"]["pixel_dimensions"].split("x")
+    if horizontal == "480":
+        return "[480p]"
+    return None
 
 
 def rename_file(op: ProcessedFile, dry_run: bool = False):
