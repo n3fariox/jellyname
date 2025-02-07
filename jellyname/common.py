@@ -1,4 +1,5 @@
 import shutil
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,7 +44,7 @@ def guess_mkv_format(movie: MKVFile):
 def rename_file(op: ProcessedFile, dry_run: bool = False):
     if not op.approved:
         return
-    print(f"mv {op.src} -> {op.dst}")
+    logging.info(f"mv {op.src} -> {op.dst}")
     if not dry_run:
         op.dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(op.src, op.dst)

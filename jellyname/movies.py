@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -56,7 +57,7 @@ def find_match(
     if not search.results:
         if movie.title and manual:
             return None
-        print("Title did not find results, try manual")
+        logging.warning("Title did not find results, try manual")
         return find_match(movie, filename, True)
 
     movies = []
@@ -100,13 +101,13 @@ def process_movie_file(
 ) -> ProcessedMovieFile:
     file = MKVFile(filename)
     if not file.title:
-        print(f"No title in {filename}")
+        logging.warning(f"No title in {filename}")
     else:
         file.title = fix_title(file.title)
 
     match = find_match(file, filename, filters=filters)
     if match is None:
-        print(f"No match for file: {filename}")
+        logging.warning(f"No match for file: {filename}")
         return
 
     default_tag = ""

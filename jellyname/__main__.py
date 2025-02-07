@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import sys
 from glob import glob
@@ -125,12 +126,14 @@ def main():
     tv_argparser(subp.add_parser("shows"))
     args = parser.parse_args()
 
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     if args.api_key:
         tmdb.API_KEY = args.api_key
     elif "TMDB_API_KEY" in os.environ:
         tmdb.API_KEY = os.environ["TMDB_API_KEY"]
     else:
-        print("No API key provided", file=sys.stderr)
+        logging.error("No API key provided")
         return -1
 
     try:
@@ -139,7 +142,7 @@ def main():
         elif args.cmd == "shows":
             tv_logic(args)
     except KeyboardInterrupt:
-        print("Exiting...")
+        logging.info("Exiting...")
 
 if __name__ == "__main__":
     main()

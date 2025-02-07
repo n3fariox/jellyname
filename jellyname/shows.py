@@ -1,4 +1,5 @@
 import itertools
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -81,7 +82,7 @@ def identify_tv_show(filename: Path, title=None, manual=False) -> Optional[TVSho
     if not search.results:
         if title and manual:
             return None
-        print("Title did not find results, try manual")
+        logging.warning("Title did not find results, try manual")
         return identify_tv_show(filename, title, True)
 
     shows = []
@@ -187,7 +188,7 @@ def process_tv_dir(
     generate the episode numbers.
     """
     if not input_directory.is_dir():
-        print(f"Skipping non-directory: {input_directory}")
+        logging.warning(f"Skipping non-directory: {input_directory}")
     tv_show = None
     tv_season = None
     file_actions = []
@@ -203,7 +204,7 @@ def process_tv_dir(
         if tv_show is not None and (tv_season is None or mixed):
             tv_season = identify_tv_season(filename, tv_show)
         if tv_show is None or tv_season is None:
-            print("failed to identity")
+            logging.warning("Failed to identify TV show or season")
             continue
 
         if mixed:
@@ -224,7 +225,7 @@ def process_tv_dir(
                 ext=filename.suffix[1:],  # we don't want the "period"
             )
             episode_num = len(get_supported_files(maybe_dst.parent)) + 1
-            print(f"Starting with episode {episode_num:02}")
+            logging.info(f"Starting with episode {episode_num:02}")
 
         dst = output_dir / out_format.format(
             name=tv_show.name,
@@ -252,5 +253,5 @@ def process_tv_dir(
 
     try:
         input_directory.rmdir()
-    except:
+    except Exception:
         pass
