@@ -42,6 +42,18 @@ class ProcessedTvFile(ProcessedFile):
     show: TVShow
 
 
+@dataclass
+class TVEpisode:
+    name: str
+    episode_number: int
+    air_date: str
+    overview: str
+    tmdb_id: int
+
+    def __str__(self):
+        return f"S{self.episode_number:02} - {self.name}"
+
+
 def identify_tv_show(filename: Path, title=None, manual=False) -> Optional[TVShow]:
     search_term = title
     if title is None or manual:
@@ -126,23 +138,33 @@ def identify_tv_season(filename: Path, tv_show: TVShow) -> Optional[TVSeason]:
     return season
 
 
-def select_episode(filename: Path, tv_show: TVShow, tv_season: TVSeason) -> Optional[int]:
+def select_episode(filename: Path, tv_show: TVShow, tv_season: TVSeason) -> Optional[TVEpisode]:
     """Prompt the user to select an episode from a list fetched from TMDB."""
     tmdb_season = tmdb.TV_Seasons(tv_show.tmdb_id, tv_season.season_number)
     tmdb_season.info()
     episodes = tmdb_season.episodes
 
+    tv_episodes = [
+        TVEpisode(
+            name=ep['name'],
+            episode_number=ep['episode_number'],
+            air_date=ep['air_date'],
+            overview=ep['overview'],
+            tmdb_id=ep['id']
+        ) for ep in episodes
+    ]
+
     NONEABOVE = object()
     result = radiolist_dialog(
         title=f"Select Episode for {tv_show.name} Season {tv_season.season_number}",
         text=f"Filename: {filename}\nSeason {tv_season.season_number} Episodes",
-        values=[(ep['episode_number'], f"S{tv_season.season_number:02}E{ep['episode_number']:02} - {ep['name']}") for ep in episodes]
-        + [(NONEABOVE, "None of the above")],
+        values=[(ep.episode_number, str(ep)) for ep in tv_episodes] + [(NONEABOVE, "None of the above")],
     ).run()
 
     if result is NONEABOVE or result is None:
         return None
-    return result
+
+    return next(ep for ep in tv_episodes if ep.episode_number == result)
 
 
 def get_supported_files(directory: Path) -> List[Path]:
