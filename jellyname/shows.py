@@ -42,9 +42,7 @@ class ProcessedTvFile(ProcessedFile):
     show: TVShow
 
 
-def identify_tv_show(
-    filename: Path, title=None, manual=False
-) -> Optional[Tuple[TVShow, TVSeason]]:
+def identify_tv_show(filename: Path, title=None, manual=False) -> Optional[TVShow]:
     search_term = title
     if title is None or manual:
         default_text = ""
@@ -62,7 +60,7 @@ def identify_tv_show(
             default=default_text,
         ).run()
         if maybe is None:
-            return None, None
+            return None
         search_term = maybe
 
     search = tmdb.Search()
@@ -110,19 +108,41 @@ def identify_tv_show(
     ).run()
 
     if result is NONEABOVE:
-        return identify_tv_show(title, filename, True)
+        return identify_tv_show(filename, title, True)
     if result is None:
-        return None, None
+        return None
+    return result
 
+
+def identify_tv_season(filename: Path, tv_show: TVShow) -> Optional[TVSeason]:
+    NONEABOVE = object()
     season = radiolist_dialog(
         title="Which season?",
-        text=f"Show: {result.name}\n{filename}",
-        values=[(x, str(x)) for x in result.seasons]
-        + [(NONEABOVE, "None of the above")],
+        text=f"Filename: {filename}\nShow: {tv_show.name}",
+        values=[(x, str(x)) for x in tv_show.seasons] + [(NONEABOVE, "None of the above")],
     ).run()
     if season is None or season is NONEABOVE:
-        return None, None
-    return result, season
+        return None
+    return season
+
+
+def select_episode(filename: Path, tv_show: TVShow, tv_season: TVSeason) -> Optional[int]:
+    """Prompt the user to select an episode from a list fetched from TMDB."""
+    tmdb_season = tmdb.TV_Seasons(tv_show.tmdb_id, tv_season.season_number)
+    tmdb_season.info()
+    episodes = tmdb_season.episodes
+
+    NONEABOVE = object()
+    result = radiolist_dialog(
+        title=f"Select Episode for {tv_show.name} Season {tv_season.season_number}",
+        text=f"Filename: {filename}\nSeason {tv_season.season_number} Episodes",
+        values=[(ep['episode_number'], f"S{tv_season.season_number:02}E{ep['episode_number']:02} - {ep['name']}") for ep in episodes]
+        + [(NONEABOVE, "None of the above")],
+    ).run()
+
+    if result is NONEABOVE or result is None:
+        return None
+    return result
 
 
 def get_supported_files(directory: Path) -> List[Path]:
@@ -155,10 +175,18 @@ def process_tv_dir(
             continue
         file = MKVFile(filename)
         if tv_show is None:
-            tv_show, tv_season = identify_tv_show(filename, file.title, False)
+            tv_show = identify_tv_show(filename, file.title, False)
+
+        if tv_show is not None and (tv_season is None or start_episode == -1):
+            tv_season = identify_tv_season(filename, tv_show)
         if tv_show is None or tv_season is None:
             print("failed to identity")
-            return None
+            continue
+
+        if start_episode == -1:
+            episode_num = select_episode(filename, tv_show, tv_season)
+            if episode_num is None:
+                return None
 
         # Get the episode number from the output directory now that we have an
         # idea of where it's going

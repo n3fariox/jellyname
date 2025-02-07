@@ -48,7 +48,8 @@ def movie_logic(args):
 
 def tv_logic(args):
     for directory in args.directories:
-        check = shows.process_tv_dir(args.output, args.format, Path(directory), dry_run=args.dry_run)
+        start_episode = -1 if  args.mixed else 0
+        check = shows.process_tv_dir(args.output, args.format, Path(directory), dry_run=args.dry_run, start_episode=start_episode)
 
 
 def movie_argparser(movies_p: argparse.ArgumentParser):
@@ -86,6 +87,12 @@ def tv_argparser(tv_p: argparse.ArgumentParser):
         "--format",
         default=default_tv_format,
         help=f'Output file format string. Valid replacements are: title, first_year, season_num, episode_num, tmdb_id. Default: "{default_tv_format}\s',
+    )
+
+    tv_p.add_argument(
+        "--mixed",
+        action="store_true",
+        help="Episodes are not in sequence",
     )
 
     tv_p.add_argument(
