@@ -179,6 +179,7 @@ def process_tv_dir(
     input_directory: Path,
     start_episode: int = 0,
     dry_run: bool = False,
+    mixed: bool = False,  # new argument
 ) -> List[ProcessedTvFile]:
     """Process a ripped TV show directory.
     This flow is a little different, everything in the directory should be the same show.
@@ -199,16 +200,17 @@ def process_tv_dir(
         if tv_show is None:
             tv_show = identify_tv_show(filename, file.title, False)
 
-        if tv_show is not None and (tv_season is None or start_episode == -1):
+        if tv_show is not None and (tv_season is None or mixed):
             tv_season = identify_tv_season(filename, tv_show)
         if tv_show is None or tv_season is None:
             print("failed to identity")
             continue
 
-        if start_episode == -1:
-            episode_num = select_episode(filename, tv_show, tv_season)
-            if episode_num is None:
+        if mixed:
+            episode = select_episode(filename, tv_show, tv_season)
+            if episode is None:
                 return None
+            episode_num = episode.episode_number
 
         # Get the episode number from the output directory now that we have an
         # idea of where it's going

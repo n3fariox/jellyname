@@ -48,8 +48,7 @@ def movie_logic(args):
 
 def tv_logic(args):
     for directory in args.directories:
-        start_episode = -1 if  args.mixed else 0
-        check = shows.process_tv_dir(args.output, args.format, Path(directory), dry_run=args.dry_run, start_episode=start_episode)
+        check = shows.process_tv_dir(args.output, args.format, Path(directory), dry_run=args.dry_run, mixed=args.mixed)
 
 
 def movie_argparser(movies_p: argparse.ArgumentParser):
@@ -134,11 +133,13 @@ def main():
         print("No API key provided", file=sys.stderr)
         return -1
 
-    if args.cmd == "movies":
-        movie_logic(args)
-    elif args.cmd == "shows":
-        tv_logic(args)
-
+    try:
+        if args.cmd == "movies":
+            movie_logic(args)
+        elif args.cmd == "shows":
+            tv_logic(args)
+    except KeyboardInterrupt:
+        print("Exiting...")
 
 if __name__ == "__main__":
     main()
