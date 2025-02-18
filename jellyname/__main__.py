@@ -23,6 +23,8 @@ def movie_logic(args):
     paths = []
     filters = make_filters(args)
     for pattern in args.files:
+        if "*" not in pattern and pattern.endswith("/"):
+            pattern += "*.mkv"
         paths.extend(glob(pattern, recursive=True))
 
     for filename in paths:
