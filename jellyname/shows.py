@@ -35,7 +35,7 @@ class TVShow:
     last_year: str
 
     def __str__(self):
-        return f"{self.name} ({self.first_year}-{self.last_year})"
+        return f"{self.name} ({self.first_year}-{self.last_year}) [tmdbid-{self.tmdb_id}]"
 
 
 @dataclass
@@ -89,7 +89,9 @@ def identify_tv_show(filename: Path, title=None, manual=False) -> Optional[TVSho
     for s in search.results:
         info = tmdb.TV(s["id"]).info()
         first_year = info.get("first_air_date", "...").split("-")[0]
-        last_year = info.get("last_air_date", "...").split("-")[0]
+        first_year = "..." if first_year is None else first_year.split("-")[0]
+        last_year = info.get("last_air_date")
+        last_year = "..." if last_year is None else last_year.split("-")[0]
         seasons = []
         for season in info["seasons"]:
             air_date = season["air_date"]
@@ -180,8 +182,9 @@ def process_tv_dir(
     input_directory: Path,
     start_episode: int = 0,
     dry_run: bool = False,
-    mixed: bool = False,  # new argument
-) -> List[ProcessedTvFile]:
+    mixed: bool = False,
+    tv_show: Optional[TVShow] = None,
+) -> Optional[TVShow]:
     """Process a ripped TV show directory.
     This flow is a little different, everything in the directory should be the same show.
     Since we don't get episode metadata from the disc, we rely on rips being in order to
@@ -189,11 +192,11 @@ def process_tv_dir(
     """
     if not input_directory.is_dir():
         logging.warning(f"Skipping non-directory: {input_directory}")
-    tv_show = None
     tv_season = None
     file_actions = []
     episode_num = start_episode
     episodes = sorted(get_supported_files(input_directory))
+    approve_all = False
     for filename in episodes:
         if not filename.is_file():
             continue
@@ -236,11 +239,18 @@ def process_tv_dir(
             ext=filename.suffix[1:],  # we don't want the "period"
         )
 
-        approved = button_dialog(
-            title=f"{tv_show.name} S{tv_season.season_number:02}E{episode_num:02}",
-            text=f"src: {filename}\ndst: {dst}" + (" (exists)" if dst.exists() else ""),
-            buttons=[("Yes", True), ("Skip", None), ("Delete", False)],
-        ).run()
+        if approve_all:
+            approved = True
+        else:
+            approved = button_dialog(
+                title=f"{tv_show.name} S{tv_season.season_number:02}E{episode_num:02}",
+                text=f"src: {filename}\ndst: {dst}" + (" (exists)" if dst.exists() else ""),
+                buttons=[("Yes", True), ("Yes to All", "all"), ("Skip", None), ("Delete", False)],
+            ).run()
+
+            if approved == "all":
+                approve_all = True
+                approved = True
 
         episode_num += 1
         if approved is None:
@@ -255,3 +265,5 @@ def process_tv_dir(
         input_directory.rmdir()
     except Exception:
         pass
+
+    return tv_show

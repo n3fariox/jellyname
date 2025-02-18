@@ -50,8 +50,11 @@ def movie_logic(args):
 
 
 def tv_logic(args):
+    tv_show = None
     for directory in args.directories:
-        check = shows.process_tv_dir(args.output, args.format, Path(directory), dry_run=args.dry_run, mixed=args.mixed)
+        check = shows.process_tv_dir(args.output, args.format, Path(directory), dry_run=args.dry_run, mixed=args.mixed, tv_show=tv_show)
+        if args.same_show and check:
+            tv_show = check
 
 
 def movie_argparser(movies_p: argparse.ArgumentParser):
@@ -95,6 +98,12 @@ def tv_argparser(tv_p: argparse.ArgumentParser):
         "--mixed",
         action="store_true",
         help="Episodes are not in sequence",
+    )
+
+    tv_p.add_argument(
+        "--same-show",
+        action="store_true",
+        help="Assume the same TV show for all directories",
     )
 
     tv_p.add_argument(
