@@ -1,0 +1,7 @@
+fast:
+  description: "Fast re-encode with libx264, lower quality"
+  ffmpeg_flags: "-c:v libx264 -preset veryfast -crf 28 -c:a copy"
+
+high_quality:
+  description: "High quality re-encode with slower preset"
+  ffmpeg_flags: "-c:v libx264 -preset slow -crf 20 -c:a copy"
