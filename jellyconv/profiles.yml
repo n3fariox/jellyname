@@ -1,7 +1,27 @@
-fast:
-  description: "Fast re-encode with libx264, lower quality"
-  ffmpeg_flags: "-c:v libx264 -preset veryfast -crf 28 -c:a copy"
+h265_reencode:
+  description: "High quality re-encode using x265"
+  video_codec: "hevc"
+  hwaccel: "qsv"
+  preset: "slow"
+  crf: 20
+  audio_codec: "aac"
+  audio_bitrate: "320k"
 
-high_quality:
-  description: "High quality re-encode with slower preset"
-  ffmpeg_flags: "-c:v libx264 -preset slow -crf 20 -c:a copy"
+fast_h264:
+  description: "Fast re-encode using x264 with lower quality"
+  video_codec: "libx264"
+  preset: "veryfast"
+  crf: 28
+  audio_codec: "copy"
+
+high_quality_h264:
+  description: "High quality re-encode using x264"
+  video_codec: "libx264"
+  preset: "slow"
+  crf: 20
+  audio_codec: "copy"
+
+copy_streams:
+  description: "Copy both video and audio streams (no re-encode)"
+  video_codec: "copy"
+  audio_codec: "copy"

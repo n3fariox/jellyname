@@ -54,42 +54,99 @@ def prompt_select_files(files: List[Path]) -> List[Path]:
 def prompt_select_profile(profiles: Dict) -> str:
     keys = list(profiles.keys())
     choices = [(k, f"{k} - {profiles[k].get('description','')}") for k in keys]
-    result = radiolist_dialog(title="Select profile", text="Choose a profile:", values=choices).run()
+    result = radiolist_dialog(
+        title="Select profile", text="Choose a profile:", values=choices
+    ).run()
     if result is None:
         return keys[0]
     return result
 
 
+def _video_codec_flags(profile: Dict) -> List[str]:
+    v = profile.get("video_codec")
+    if not v:
+        return []
+    vmap = {
+        "h264": "libx264",
+        "x264": "libx264",
+        "h265": "libx265",
+        "x265": "libx265",
+        "nvenc": "h264_nvenc",
+        "h264_nvenc": "h264_nvenc",
+        "copy": "copy",
+    }
+    chosen = vmap.get(v, v)
+    flags: List[str] = ["-c:v", chosen]
+
+    # preset and crf are video-related
+    preset = profile.get("preset")
+    if preset:
+        flags += ["-preset", str(preset)]
+
+    crf = profile.get("crf")
+    if crf is not None and chosen != "copy":
+        flags += ["-crf", str(crf)]
+
+    vb = profile.get("video_bitrate")
+    if vb:
+        flags += ["-b:v", str(vb)]
+
+    return flags
+
+
+def _audio_codec_flags(profile: Dict) -> List[str]:
+    a = profile.get("audio_codec")
+    if not a:
+        return []
+    amap = {"copy": "copy", "aac": "aac", "ac3": "ac3", "mp3": "libmp3lame"}
+    chosen = amap.get(a, a)
+    flags: List[str] = ["-c:a", chosen]
+    ab = profile.get("audio_bitrate")
+    if ab:
+        flags += ["-b:a", str(ab)]
+    return flags
+
+
+def _extra_flags(profile: Dict) -> List[str]:
+    extra = profile.get("extra_flags")
+    if not extra:
+        return []
+    if isinstance(extra, list):
+        out: List[str] = []
+        for e in extra:
+            out += shlex.split(str(e))
+        return out
+    return shlex.split(str(extra))
+
+
+def _hwaccel_flags(profile: Dict) -> List[str]:
+    # if "hwaccel" in profile:
+    #     return ["-init_hw_device", "qsv=hw", "-hwaccel", profile["hwaccel"], "-hwaccel_device", "qsv"]
+    # simple default: let ffmpeg pick available accel for decoding
+    return ["-hwaccel", "auto", "-hwaccel_output_format", "auto"]
+    # return [
+    #     "-init_hw_device",
+    #     "qsv=qsv:MFX_IMPL_hw",
+    #     "shwaccel_device",
+    #     "qsv",
+    #     "-hwaccel",
+    #     "qsv",
+    #     # "-qsv_device",
+    #     # "/dev/dri/renderD128",
+    #     "-hwaccel_output_format",
+    #     "qsv",
+    # ]
+
+
 def build_cmd(profile: Dict, inp: Path, out: Path) -> List[str]:
-    flags = profile.get("ffmpeg_flags", "")
-    parts = shlex.split(flags)
-
-    # def detect_hwaccels() -> List[str]:
-    #     try:
-    #         p = subprocess.run(["ffmpeg", "-hide_banner", "-hwaccels"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-    #         out = p.stdout.splitlines()
-    #         # Skip header lines and collect non-empty tokens
-    #         accels = [line.strip().split()[0] for line in out if line.strip() and not line.lower().startswith("hardware")]
-    #         return accels
-    #     except Exception:
-    #         return []
-
-    # hwaccels = detect_hwaccels()
-    cmd = ["ffmpeg"]
-    # # prefer CUDA, then QSV, then VAAPI if available
-    # pref = ["cuda", "qsv", "vaapi"]
-    # chosen = None
-    # for p_acc in pref:
-    #     if p_acc in hwaccels:
-    #         chosen = p_acc
-    #         break
-
-    # if chosen:
-    #     logging.info("Using hwaccel: %s", chosen)
-    #     cmd += ["-hwaccel", chosen, "-hwaccel_output_format", chosen]
-    cmd += ["-hwaccel", "auto", "-hwaccel_output_format", "auto"]
-
-    cmd += ["-i", str(inp)] + parts + [str(out)]
+    cmd: List[str] = ["ffmpeg"]
+    cmd += _hwaccel_flags(profile)
+    cmd += ["-i", str(inp)]
+    cmd += ["-map_metadata", "0", "-movflags", "faststart"]
+    cmd += _video_codec_flags(profile)
+    cmd += _audio_codec_flags(profile)
+    cmd += _extra_flags(profile)
+    cmd += [str(out)]
     return cmd
 
 
@@ -147,7 +204,9 @@ def run_ffmpeg_with_progress(cmd: List[str], duration: float, name: str) -> int:
     ms_re = re.compile(r"out_time_ms=(\d+)")
 
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
     except Exception as e:
         logging.error("Failed to start ffmpeg for %s: %s", name, e)
         return 1
@@ -191,6 +250,8 @@ def run_ffmpeg_with_progress(cmd: List[str], duration: float, name: str) -> int:
                     last_time += 1
 
             proc.wait()
+            if proc.returncode != 0:
+                logging.error("ffmpeg failed stdout: %s", proc.stderr.read())
             return proc.returncode or 0
     except Exception as e:
         logging.error("Error while running ffmpeg for %s: %s", name, e)
@@ -239,7 +300,9 @@ def handle_single_file(f: Path, profile: Dict):
     saved = bak_size - out_size
     logging.info("Successfully converted %s", f)
     if saved > 0:
-        print(f"Converted: {f.name} — saved {human_size(Path('.').with_name('tmp')) if False else ''}")
+        print(
+            f"Converted: {f.name} — saved {human_size(Path('.').with_name('tmp')) if False else ''}"
+        )
         # Use human-readable sizes
         print(f"Original: {human_size(bak)} ({bak_size} bytes)")
         print(f"New:      {human_size(out)} ({out_size} bytes)")
@@ -251,12 +314,18 @@ def handle_single_file(f: Path, profile: Dict):
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(prog="jellyconv", description="Interactive ffmpeg converter")
+    parser = argparse.ArgumentParser(
+        prog="jellyconv", description="Interactive ffmpeg converter"
+    )
     parser.add_argument("folder", type=Path, help="Folder with files to convert")
-    parser.add_argument("--profiles", type=Path, default=Path("profiles.yml"), help="profiles.yml path")
+    parser.add_argument(
+        "--profiles", type=Path, default=Path("profiles.yml"), help="profiles.yml path"
+    )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
 
     folder = args.folder
     if not folder.exists() or not folder.is_dir():

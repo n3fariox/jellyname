@@ -3,4 +3,4 @@ prompt_toolkit==3.0.48
 pymkv2==2.1.0
 
 # Added for jellyconv
-PyYAML==6.0
+PyYAML==6.0.3
