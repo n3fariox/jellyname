@@ -52,7 +52,7 @@ def movie_logic(args):
 def tv_logic(args):
     tv_show = None
     for directory in args.directories:
-        check = shows.process_tv_dir(args.output, args.format, Path(directory), dry_run=args.dry_run, mixed=args.mixed, tv_show=tv_show)
+        check = shows.process_tv_dir(args.output, args.format, Path(directory), dry_run=args.dry_run, mixed=args.mixed, tv_show=tv_show, tvdb_id=args.tvdb_id)
         if args.same_show and check:
             tv_show = check
 
@@ -62,7 +62,7 @@ def movie_argparser(movies_p: argparse.ArgumentParser):
     movies_p.add_argument(
         "--format",
         default=default_movie_format,
-        help=f'Output file format string. Valid replacements are: title, year, tmdb_id. Default: "{default_movie_format}\s',
+        help=f'Output file format string. Valid replacements are: title, year, tmdb_id. Default: "{default_movie_format}',
     )
     movies_p.add_argument(
         "-o",
@@ -87,11 +87,11 @@ def tv_argparser(tv_p: argparse.ArgumentParser):
         type=Path,
         help="Should be jellyfin shows dir",
     )
-    default_tv_format = "{name} ({first_year}) [tmdbid-{tmdb_id}]/Season {season_num:02}/{name} S{season_num:02}E{episode_num:02}.{ext}"
+    default_tv_format = "{name} ({first_year}) [{source}-{source_id}]/Season {season_num:02}/{name} S{season_num:02}E{episode_num:02}.{ext}"
     tv_p.add_argument(
         "--format",
         default=default_tv_format,
-        help=f'Output file format string. Valid replacements are: title, first_year, season_num, episode_num, tmdb_id. Default: "{default_tv_format}\s',
+        help=f'Output file format string. Valid replacements are: name, first_year, season_num, episode_num, source, source_id. Default: "{default_tv_format}',
     )
 
     tv_p.add_argument(
@@ -104,6 +104,12 @@ def tv_argparser(tv_p: argparse.ArgumentParser):
         "--same-show",
         action="store_true",
         help="Assume the same TV show for all directories",
+    )
+
+    tv_p.add_argument(
+        "--tvdb-id",
+        type=int,
+        help="TVDB series ID (lookup at thetvdb.com). When provided, uses TVDB instead of TMDB",
     )
 
     tv_p.add_argument(
@@ -144,7 +150,7 @@ def main():
     elif "TMDB_API_KEY" in os.environ:
         tmdb.API_KEY = os.environ["TMDB_API_KEY"]
     else:
-        logging.error("No API key provided")
+        logging.error("No TMDB API key provided")
         return -1
 
     try:
