@@ -3,7 +3,7 @@ pub fn fix_title(title: &str) -> String {
     if let Some(stripped) = t.strip_suffix(", the") {
         t = format!("the {}", stripped);
     }
-    t = t.replace(" - blu-ray", "");
+    t = t.replace("- blu-ray", "");
     t = t.replace("blu-ray", "");
     t
 }
@@ -34,6 +34,11 @@ mod tests {
     fn test_fix_title_removes_bluray() {
         assert_eq!(fix_title("Movie - blu-ray"), "movie ");
         assert_eq!(fix_title("Movie blu-ray"), "movie ");
+    }
+
+    #[test]
+    fn test_fix_title_movie_with_the() {
+        assert_eq!(fix_title("Dark Knight, The"), "the dark knight");
     }
 
     #[test]
