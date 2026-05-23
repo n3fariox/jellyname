@@ -85,7 +85,7 @@ async fn main() -> Result<()> {
             }
             tracing::info!("Found {} MKV files", paths.len());
 
-            let app = TuiApp::new(Mode::Movies, paths, cli.dry_run);
+            let app = TuiApp::new(Mode::Movies, paths, cli.dry_run, false);
             run_tui(app, tmdb, output, format, cli.dry_run, filters).await?;
         }
         cli::Command::Shows { format, output, directories, mixed, same_show } => {
@@ -115,7 +115,7 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
 
-            let app = TuiApp::new(Mode::Shows, all_files, cli.dry_run);
+            let app = TuiApp::new(Mode::Shows, all_files, cli.dry_run, mixed);
             run_tui(app, tmdb, output, format, cli.dry_run, filters).await?;
         }
     }

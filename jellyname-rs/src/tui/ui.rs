@@ -97,6 +97,53 @@ pub async fn run_tui(
                     continue;
                 }
                 FileState::ReadMkv { path, title } => {
+                    // In shows mode with cached show/season: skip to confirm
+                    if app.mode == Mode::Shows {
+                        if let (Some(show_cache), Some(season_cache)) =
+                            (&app.show_cache, &app.season_cache)
+                        {
+                            app.episode_num += 1;
+                            let ext = path
+                                .extension()
+                                .and_then(|e| e.to_str())
+                                .unwrap_or("mkv");
+                            let show = crate::models::show::TVShow {
+                                name: show_cache.name.clone(),
+                                seasons: vec![],
+                                episodes: show_cache.episodes,
+                                tmdb_id: show_cache.tmdb_id,
+                                first_year: show_cache.first_year.clone(),
+                                last_year: show_cache.last_year.clone(),
+                            };
+                            let season = crate::models::show::TVSeason {
+                                name: season_cache.name.clone(),
+                                season_number: season_cache.season_number,
+                                episode_count: season_cache.episode_count,
+                                year: season_cache.year.clone(),
+                                tmdb_id: season_cache.tmdb_id,
+                            };
+                            let dst = crate::processor::shows::compute_episode_dst(
+                                &output_dir,
+                                &format,
+                                &show,
+                                &season,
+                                app.episode_num,
+                                ext,
+                            )
+                            .unwrap_or_else(|_| std::path::PathBuf::new());
+                            let exists = dst.exists();
+                            app.files[app.current] = FileState::ConfirmEpisode {
+                                path: path.clone(),
+                                show: show_cache.clone(),
+                                episode_num: app.episode_num,
+                                src: path.clone(),
+                                dst,
+                                exists,
+                            };
+                            continue;
+                        }
+                    }
+
                     let fixed = title.as_deref().map(fix_title);
                     let default_query = fixed
                         .clone()
@@ -106,28 +153,40 @@ pub async fn run_tui(
                         })
                         .unwrap_or_default();
 
+                    let tx = evt_tx.clone();
+                    let tmdb = tmdb.clone();
+                    let q = default_query.clone();
+
                     if fixed.is_some() && !default_query.is_empty() {
-                        // Auto-search with MKV title
                         app.files[app.current] = FileState::Searching {
                             path: path.clone(),
                             mkv_title: title.clone(),
                             query: default_query.clone(),
                         };
-                        let tx = evt_tx.clone();
-                        let tmdb = tmdb.clone();
-                        let q = default_query.clone();
-                        tokio::spawn(async move {
-                            match tmdb.search_movie(&q).await {
-                                Ok(results) => {
-                                    let _ = tx.send(TuiEvent::TmdbMovieSearch(results));
+                        if app.mode == Mode::Movies {
+                            tokio::spawn(async move {
+                                match tmdb.search_movie(&q).await {
+                                    Ok(results) => {
+                                        let _ = tx.send(TuiEvent::TmdbMovieSearch(results));
+                                    }
+                                    Err(e) => {
+                                        let _ = tx.send(TuiEvent::Error(e.to_string()));
+                                    }
                                 }
-                                Err(e) => {
-                                    let _ = tx.send(TuiEvent::Error(e.to_string()));
+                            });
+                        } else {
+                            tokio::spawn(async move {
+                                match tmdb.search_tv(&q).await {
+                                    Ok(results) => {
+                                        let _ = tx.send(TuiEvent::TmdbTvSearch(results));
+                                    }
+                                    Err(e) => {
+                                        let _ = tx.send(TuiEvent::Error(e.to_string()));
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
                     } else {
-                        // Need user input for search
                         app.files[app.current] = FileState::SearchInput {
                             path: path.clone(),
                             mkv_title: title.clone(),
@@ -340,31 +399,77 @@ pub async fn run_tui(
                                     if list_selection < seasons.len() {
                                         let s = &seasons[list_selection];
                                         app.season_cache = Some(s.clone());
-                                        app.files[app.current] =
-                                            FileState::SelectEpisode {
-                                                path: path.clone(),
-                                                show: show.clone(),
-                                                season: s.clone(),
-                                                episodes: Vec::new(),
+                                        app.episode_num = 0;
+
+                                        if app.mixed {
+                                            // Mixed mode: go to episode selection
+                                            app.files[app.current] =
+                                                FileState::SelectEpisode {
+                                                    path: path.clone(),
+                                                    show: show.clone(),
+                                                    season: s.clone(),
+                                                    episodes: Vec::new(),
+                                                };
+                                            list_selection = 0;
+                                            let tx = evt_tx.clone();
+                                            let tmdb = tmdb.clone();
+                                            let sid = show.tmdb_id;
+                                            let snum = s.season_number;
+                                            tokio::spawn(async move {
+                                                match tmdb.season_episodes(sid, snum).await {
+                                                    Ok(episodes) => {
+                                                        let _ = tx
+                                                            .send(TuiEvent::TmdbSeasonEpisodes(episodes));
+                                                    }
+                                                    Err(e) => {
+                                                        let _ = tx
+                                                            .send(TuiEvent::Error(e.to_string()));
+                                                    }
+                                                }
+                                            });
+                                        } else {
+                                            // Non-mixed: auto-number episodes
+                                            app.episode_num += 1;
+                                            let ext = path
+                                                .extension()
+                                                .and_then(|e| e.to_str())
+                                                .unwrap_or("mkv");
+                                            let tv_show = crate::models::show::TVShow {
+                                                name: show.name.clone(),
+                                                seasons: vec![],
+                                                episodes: show.episodes,
+                                                tmdb_id: show.tmdb_id,
+                                                first_year: show.first_year.clone(),
+                                                last_year: show.last_year.clone(),
                                             };
-                                        list_selection = 0;
-                                        // Fetch episodes async
-                                        let tx = evt_tx.clone();
-                                        let tmdb = tmdb.clone();
-                                        let sid = show.tmdb_id;
-                                        let snum = s.season_number;
-                                        tokio::spawn(async move {
-                                            match tmdb.season_episodes(sid, snum).await {
-                                                Ok(episodes) => {
-                                                    let _ = tx
-                                                        .send(TuiEvent::TmdbSeasonEpisodes(episodes));
-                                                }
-                                                Err(e) => {
-                                                    let _ = tx
-                                                        .send(TuiEvent::Error(e.to_string()));
-                                                }
-                                            }
-                                        });
+                                            let tv_season = crate::models::show::TVSeason {
+                                                name: s.name.clone(),
+                                                season_number: s.season_number,
+                                                episode_count: s.episode_count,
+                                                year: s.year.clone(),
+                                                tmdb_id: s.tmdb_id,
+                                            };
+                                            let dst = crate::processor::shows::compute_episode_dst(
+                                                &output_dir,
+                                                &format,
+                                                &tv_show,
+                                                &tv_season,
+                                                app.episode_num,
+                                                ext,
+                                            )
+                                            .unwrap_or_else(|_| std::path::PathBuf::new());
+                                            let exists = dst.exists();
+                                            app.files[app.current] =
+                                                FileState::ConfirmEpisode {
+                                                    path: path.clone(),
+                                                    show: show.clone(),
+                                                    episode_num: app.episode_num,
+                                                    src: path.clone(),
+                                                    dst,
+                                                    exists,
+                                                };
+                                            confirm_selection = 0;
+                                        }
                                     } else {
                                         app.files[app.current] = FileState::SearchInput {
                                             path: path.clone(),

@@ -89,6 +89,7 @@ pub struct TuiApp {
     pub should_quit: bool,
     pub approve_all: bool,
     pub dry_run: bool,
+    pub mixed: bool,
     pub show_cache: Option<ShowCache>,
     pub season_cache: Option<TvSeasonResult>,
     pub episode_num: u32,
@@ -96,7 +97,7 @@ pub struct TuiApp {
 }
 
 impl TuiApp {
-    pub fn new(mode: Mode, files: Vec<PathBuf>, dry_run: bool) -> Self {
+    pub fn new(mode: Mode, files: Vec<PathBuf>, dry_run: bool, mixed: bool) -> Self {
         Self {
             mode,
             files: files
@@ -107,6 +108,7 @@ impl TuiApp {
             should_quit: false,
             approve_all: false,
             dry_run,
+            mixed,
             show_cache: None,
             season_cache: None,
             episode_num: 0,
