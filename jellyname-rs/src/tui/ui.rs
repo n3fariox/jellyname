@@ -26,16 +26,6 @@ enum TuiEvent {
     Error(String),
 }
 
-async fn read_key() -> TuiEvent {
-    loop {
-        if let Ok(event) = crossterm::event::read() {
-            if let crossterm::event::Event::Key(key) = event {
-                return TuiEvent::Key(key);
-            }
-        }
-    }
-}
-
 pub async fn run_tui(
     mut app: TuiApp,
     tmdb: Arc<TmdbClient>,
@@ -53,11 +43,11 @@ pub async fn run_tui(
 
     let (evt_tx, mut evt_rx) = mpsc::unbounded_channel::<TuiEvent>();
 
-    // Spawn ticker for rendering
+    // Spawn ticker for rendering (~60 fps)
     let tick_tx = evt_tx.clone();
     tokio::spawn(async move {
         loop {
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            tokio::time::sleep(Duration::from_millis(16)).await;
             if tick_tx.send(TuiEvent::Tick).is_err() {
                 break;
             }
@@ -203,10 +193,25 @@ pub async fn run_tui(
                 render(f, &app, list_selection, confirm_selection, &tag_text);
             })?;
 
-            // Wait for events
+            // Wait for events — poll channel AND keyboard without blocking
             let event = tokio::select! {
-                evt = evt_rx.recv() => evt.unwrap_or(TuiEvent::Tick),
-                key = read_key() => key,
+                evt = evt_rx.recv() => {
+                    evt.unwrap_or(TuiEvent::Tick)
+                }
+                _ = tokio::time::sleep(Duration::from_millis(50)) => {
+                    // Check for keyboard events (non-blocking)
+                    if crossterm::event::poll(Duration::from_secs(0)).unwrap_or(false) {
+                        if let crossterm::event::Event::Key(key) =
+                            crossterm::event::read().unwrap()
+                        {
+                            TuiEvent::Key(key)
+                        } else {
+                            TuiEvent::Tick
+                        }
+                    } else {
+                        TuiEvent::Tick
+                    }
+                }
             };
 
             match event {
