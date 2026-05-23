@@ -4,7 +4,12 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Wrap};
 use ratatui::Frame;
 
-pub fn render_file_list(frame: &mut Frame, area: Rect, files: &[super::app::FileState], current: usize) {
+pub fn render_file_list(
+    frame: &mut Frame,
+    area: Rect,
+    files: &[super::app::FileState],
+    current: usize,
+) {
     let block = Block::default()
         .title("Files")
         .borders(Borders::ALL)
@@ -41,7 +46,9 @@ pub fn render_file_list(frame: &mut Frame, area: Rect, files: &[super::app::File
             };
 
             let style = if i == current {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
@@ -73,7 +80,12 @@ pub fn render_search_input(frame: &mut Frame, area: Rect, query: &str, prompt: &
         Line::from(vec![
             Span::styled("> ", Style::default().fg(Color::Cyan)),
             Span::raw(query),
-            Span::styled("█", Style::default().fg(Color::Cyan).add_modifier(Modifier::SLOW_BLINK)),
+            Span::styled(
+                "█",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::SLOW_BLINK),
+            ),
         ]),
     ]);
     let para = Paragraph::new(text).wrap(Wrap { trim: false });
@@ -106,19 +118,30 @@ pub fn render_select_list<T: std::fmt::Display>(
     for (i, item) in items.iter().enumerate().skip(start).take(max_rows) {
         let marker = if i == selected { "▸ " } else { "  " };
         let style = if i == selected {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default()
         };
-        lines.push(Line::from(Span::styled(format!("{}{}", marker, item), style)));
+        lines.push(Line::from(Span::styled(
+            format!("{}{}", marker, item),
+            style,
+        )));
     }
 
     if show_none {
-        let none_marker = if selected >= items.len() { "▸ " } else { "  " };
+        let none_marker = if selected >= items.len() {
+            "▸ "
+        } else {
+            "  "
+        };
         lines.push(Line::from(Span::styled(
             format!("{}None of the above", none_marker),
             if selected >= items.len() {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             },
@@ -172,20 +195,14 @@ pub fn render_confirm_dialog(
             } else {
                 Style::default().fg(Color::White)
             };
-            vec![
-                Span::styled(format!("[{}]", label), style),
-                Span::raw(" "),
-            ]
+            vec![Span::styled(format!("[{}]", label), style), Span::raw(" ")]
         })
         .collect();
 
     let text = Text::from(vec![
         Line::from(Span::raw(format!("src: {}", src))),
         Line::from(Span::raw(format!("dst: {}", dst))),
-        Line::from(Span::styled(
-            exists_text,
-            Style::default().fg(Color::Red),
-        )),
+        Line::from(Span::styled(exists_text, Style::default().fg(Color::Red))),
         Line::from(""),
         Line::from(button_line),
     ]);
@@ -213,7 +230,12 @@ pub fn render_tag_input(frame: &mut Frame, area: Rect, tag: &str, default_tag: &
         Line::from(vec![
             Span::styled("> ", Style::default().fg(Color::Cyan)),
             Span::raw(tag),
-            Span::styled("█", Style::default().fg(Color::Cyan).add_modifier(Modifier::SLOW_BLINK)),
+            Span::styled(
+                "█",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::SLOW_BLINK),
+            ),
         ]),
         Line::from(Span::styled(
             "[Enter] confirm  [Esc] skip tag",
@@ -257,7 +279,9 @@ pub fn render_loading(frame: &mut Frame, area: Rect, msg: &str) {
 
     let text = Text::from(Line::from(Span::styled(
         format!("{}...", msg),
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::SLOW_BLINK),
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::SLOW_BLINK),
     )));
 
     let para = Paragraph::new(text)

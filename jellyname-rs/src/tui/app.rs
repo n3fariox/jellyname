@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
+use crate::tmdb::models::EpisodeResult;
 use crate::tmdb::models::MovieSearchResult;
 use crate::tmdb::models::TvSearchResult;
 use crate::tmdb::models::TvSeasonResult;
-use crate::tmdb::models::EpisodeResult;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mode {
@@ -14,8 +14,13 @@ pub enum Mode {
 
 #[derive(Debug, Clone)]
 pub enum FileState {
-    Pending { path: PathBuf },
-    ReadMkv { path: PathBuf, title: Option<String> },
+    Pending {
+        path: PathBuf,
+    },
+    ReadMkv {
+        path: PathBuf,
+        title: Option<String>,
+    },
     SearchInput {
         path: PathBuf,
         mkv_title: Option<String>,
@@ -67,10 +72,19 @@ pub enum FileState {
         dst: PathBuf,
         exists: bool,
     },
-    Failed { path: PathBuf, error: String },
-    Approved { path: PathBuf },
-    Skipped { path: PathBuf },
-    Deleted { path: PathBuf },
+    Failed {
+        path: PathBuf,
+        error: String,
+    },
+    Approved {
+        path: PathBuf,
+    },
+    Skipped {
+        path: PathBuf,
+    },
+    Deleted {
+        path: PathBuf,
+    },
 }
 
 #[derive(Debug, Clone)]

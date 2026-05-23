@@ -7,7 +7,10 @@ const DEFAULT_MOVIE_FORMAT: &str =
 const DEFAULT_TV_FORMAT: &str = "{name} ({first_year}) [tmdbid-{tmdb_id}]/Season {season_num:02}/{name} S{season_num:02}E{episode_num:02}.{ext}";
 
 #[derive(Debug, Parser)]
-#[command(name = "jellyname-rs", about = "Interactive tool to rename MKV files for Jellyfin")]
+#[command(
+    name = "jellyname-rs",
+    about = "Interactive tool to rename MKV files for Jellyfin"
+)]
 pub struct Cli {
     #[arg(short = 'd', long)]
     pub dry_run: bool,

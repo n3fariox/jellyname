@@ -9,7 +9,10 @@ fn test_read_generated_mkv() {
     assert_eq!(mkv.info.title.as_deref(), Some("The Dark Knight, The"));
 
     let video_tracks: Vec<_> = mkv.video_tracks().collect();
-    assert!(!video_tracks.is_empty(), "Should have at least one video track");
+    assert!(
+        !video_tracks.is_empty(),
+        "Should have at least one video track"
+    );
     if let matroska::Settings::Video(v) = &video_tracks[0].settings {
         assert_eq!(v.pixel_width, 1920);
         assert_eq!(v.pixel_height, 1080);

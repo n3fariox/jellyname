@@ -10,7 +10,11 @@ pub struct MovieSearchResult {
 
 impl fmt::Display for MovieSearchResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({}) [tmdbid-{}]", self.title, self.year, self.tmdb_id)
+        write!(
+            f,
+            "{} ({}) [tmdbid-{}]",
+            self.title, self.year, self.tmdb_id
+        )
     }
 }
 
@@ -25,7 +29,11 @@ pub struct TvSearchResult {
 
 impl fmt::Display for TvSearchResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({}-{}) [tmdbid-{}]", self.name, self.first_year, self.last_year, self.tmdb_id)
+        write!(
+            f,
+            "{} ({}-{}) [tmdbid-{}]",
+            self.name, self.first_year, self.last_year, self.tmdb_id
+        )
     }
 }
 
@@ -38,7 +46,11 @@ pub struct TvSeasonResult {
 
 impl fmt::Display for TvSeasonResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} Season {} ({} episodes)", self.name, self.season_number, self.episode_count)
+        write!(
+            f,
+            "{} Season {} ({} episodes)",
+            self.name, self.season_number, self.episode_count
+        )
     }
 }
 
@@ -51,6 +63,10 @@ pub struct EpisodeResult {
 
 impl fmt::Display for EpisodeResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "S{:02} - {} ({})", self.episode_number, self.name, self.air_date)
+        write!(
+            f,
+            "S{:02} - {} ({})",
+            self.episode_number, self.name, self.air_date
+        )
     }
 }

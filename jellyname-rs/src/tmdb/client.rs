@@ -1,4 +1,4 @@
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::{eyre, Result};
 use tmdb_api::client::reqwest::ReqwestExecutor;
 use tmdb_api::client::Client as TmdbApiClient;
 use tmdb_api::prelude::Command;

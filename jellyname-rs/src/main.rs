@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use clap::Parser;
 use cli::Cli;
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::{eyre, Result};
 use glob::glob;
 
 use models::filters::Filters;
@@ -73,11 +73,17 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     tracing::info!(?cli, "jellyname-rs started");
 
-    let filters = Filters { lang: cli.filter_lang };
+    let filters = Filters {
+        lang: cli.filter_lang,
+    };
     let tmdb = Arc::new(TmdbClient::new(&cli.api_key));
 
     match cli.cmd {
-        cli::Command::Movies { format, output, files } => {
+        cli::Command::Movies {
+            format,
+            output,
+            files,
+        } => {
             let paths = resolve_files(&files)?;
             if paths.is_empty() {
                 tracing::warn!("No MKV files found matching the given patterns");
@@ -88,7 +94,13 @@ async fn main() -> Result<()> {
             let app = TuiApp::new(Mode::Movies, paths, cli.dry_run, false);
             run_tui(app, tmdb, output, format, cli.dry_run, filters).await?;
         }
-        cli::Command::Shows { format, output, directories, mixed, same_show: _ } => {
+        cli::Command::Shows {
+            format,
+            output,
+            directories,
+            mixed,
+            same_show: _,
+        } => {
             let dirs = resolve_directories(&directories)?;
             if dirs.is_empty() {
                 tracing::warn!("No valid directories found");
@@ -102,9 +114,7 @@ async fn main() -> Result<()> {
                     .map_err(|e| eyre!("Cannot read directory {dir:?}: {e}"))?
                     .filter_map(|e| e.ok())
                     .map(|e| e.path())
-                    .filter(|p| {
-                        p.extension().and_then(|e| e.to_str()) == Some("mkv")
-                    })
+                    .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("mkv"))
                     .collect();
                 dir_files.sort();
                 all_files.extend(dir_files);

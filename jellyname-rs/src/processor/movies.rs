@@ -44,7 +44,9 @@ pub fn compute_movie_dst(
     ctx.insert("tmdb_id".to_string(), movie.tmdb_id.to_string());
     ctx.insert("tag".to_string(), tag.to_string());
     ctx.insert("ext".to_string(), ext.to_string());
-    apply_format(template, &ctx).map(|p| output_dir.join(p)).map_err(|e| e.to_string())
+    apply_format(template, &ctx)
+        .map(|p| output_dir.join(p))
+        .map_err(|e| e.to_string())
 }
 
 pub fn suggest_tag(dst: &Path) -> String {
