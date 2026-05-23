@@ -3,6 +3,8 @@ name = "jellyname-rs"
 version = "0.1.0"
 edition = "2021"
 description = "Interactive TUI tool to rename MakeMKV rips for Jellyfin"
+license = "MIT"
+repository = "https://github.com/n3fariox/jellyname"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
