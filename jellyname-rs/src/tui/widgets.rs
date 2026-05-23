@@ -246,6 +246,28 @@ pub fn render_tag_input(frame: &mut Frame, area: Rect, tag: &str, default_tag: &
     frame.render_widget(para, inner);
 }
 
+pub fn render_log_panel(frame: &mut Frame, area: Rect, log: &std::collections::VecDeque<String>) {
+    let block = Block::default()
+        .title("Log")
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let max_rows = inner.height as usize;
+    let total = log.len();
+    let start = total.saturating_sub(max_rows);
+    let lines: Vec<Line> = log
+        .iter()
+        .skip(start)
+        .take(max_rows)
+        .map(|msg| Line::from(msg.as_str()))
+        .collect();
+
+    let para = Paragraph::new(Text::from(lines));
+    frame.render_widget(para, inner);
+}
+
 pub fn render_loading(frame: &mut Frame, area: Rect, msg: &str) {
     let block = Block::default()
         .title("Please wait")

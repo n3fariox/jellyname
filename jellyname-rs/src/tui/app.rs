@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::path::PathBuf;
 
 use crate::tmdb::models::MovieSearchResult;
@@ -94,6 +95,7 @@ pub struct TuiApp {
     pub season_cache: Option<TvSeasonResult>,
     pub episode_num: u32,
     pub status_message: Option<String>,
+    pub log: VecDeque<String>,
 }
 
 impl TuiApp {
@@ -113,6 +115,7 @@ impl TuiApp {
             season_cache: None,
             episode_num: 0,
             status_message: None,
+            log: VecDeque::new(),
         }
     }
 
@@ -122,5 +125,12 @@ impl TuiApp {
 
     pub fn set_status(&mut self, msg: String) {
         self.status_message = Some(msg);
+    }
+
+    pub fn push_log(&mut self, msg: String) {
+        self.log.push_back(msg);
+        if self.log.len() > 500 {
+            self.log.pop_front();
+        }
     }
 }

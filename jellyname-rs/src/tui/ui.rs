@@ -26,6 +26,30 @@ enum TuiEvent {
     Error(String),
 }
 
+/// Spawn a blocking thread that reads crossterm events and forwards them
+/// through an mpsc sender.  This is the standard Ratatui+tokio integration
+/// pattern — crossterm's `read()` is synchronous, so we keep it off the
+/// async runtime.
+fn spawn_input_thread(tx: mpsc::UnboundedSender<TuiEvent>) {
+    std::thread::spawn(move || {
+        loop {
+            match crossterm::event::read() {
+                Ok(crossterm::event::Event::Key(key)) => {
+                    if tx.send(TuiEvent::Key(key)).is_err() {
+                        break;
+                    }
+                }
+                Ok(crossterm::event::Event::Resize(..)) => {
+                    // wake render loop on resize
+                    let _ = tx.send(TuiEvent::Tick);
+                }
+                Err(_) => break,
+                _ => {}
+            }
+        }
+    });
+}
+
 pub async fn run_tui(
     mut app: TuiApp,
     tmdb: Arc<TmdbClient>,
@@ -53,6 +77,9 @@ pub async fn run_tui(
             }
         }
     });
+
+    // Spawn dedicated thread for blocking crossterm reads
+    spawn_input_thread(evt_tx.clone());
 
     // Current selection indices for lists
     let mut list_selection: usize = 0;
@@ -193,26 +220,8 @@ pub async fn run_tui(
                 render(f, &app, list_selection, confirm_selection, &tag_text);
             })?;
 
-            // Wait for events — poll channel AND keyboard without blocking
-            let event = tokio::select! {
-                evt = evt_rx.recv() => {
-                    evt.unwrap_or(TuiEvent::Tick)
-                }
-                _ = tokio::time::sleep(Duration::from_millis(50)) => {
-                    // Check for keyboard events (non-blocking)
-                    if crossterm::event::poll(Duration::from_secs(0)).unwrap_or(false) {
-                        if let crossterm::event::Event::Key(key) =
-                            crossterm::event::read().unwrap()
-                        {
-                            TuiEvent::Key(key)
-                        } else {
-                            TuiEvent::Tick
-                        }
-                    } else {
-                        TuiEvent::Tick
-                    }
-                }
-            };
+            // Wait for next event (from tick, input thread, or TMDB task)
+            let event = evt_rx.recv().await.unwrap_or(TuiEvent::Tick);
 
             match event {
                 TuiEvent::Tick => {}
@@ -642,6 +651,7 @@ pub async fn run_tui(
                                 dst.clone(),
                                 dry_run,
                             );
+                            // Log is pushed inside handle_confirm_input
                         }
                         FileState::ConfirmEpisode { path, show, episode_num, src, dst, exists } => {
                             let has_show_cache = app.show_cache.is_some();
@@ -664,6 +674,11 @@ pub async fn run_tui(
                                         0 => {
                                             // Yes
                                             rename_file(&src, &dst, dry_run).ok();
+                                            app.push_log(format!(
+                                                "✓ {} -> {}",
+                                                src.to_string_lossy(),
+                                                dst.to_string_lossy(),
+                                            ));
                                             app.files[app.current] =
                                                 FileState::Approved { path: path.clone() };
                                             app.current += 1;
@@ -673,6 +688,11 @@ pub async fn run_tui(
                                             // Yes to All
                                             app.approve_all = true;
                                             rename_file(&src, &dst, dry_run).ok();
+                                            app.push_log(format!(
+                                                "✓ {} -> {}",
+                                                src.to_string_lossy(),
+                                                dst.to_string_lossy(),
+                                            ));
                                             app.files[app.current] =
                                                 FileState::Approved { path: path.clone() };
                                             app.current += 1;
@@ -697,6 +717,7 @@ pub async fn run_tui(
                                             if !dry_run {
                                                 std::fs::remove_file(&src).ok();
                                             }
+                                            app.push_log(format!("✕ {}", src.to_string_lossy()));
                                             app.files[app.current] =
                                                 FileState::Deleted { path: path.clone() };
                                             app.current += 1;
@@ -836,6 +857,11 @@ fn handle_confirm_input(
                 0 => {
                     // Yes
                     let _ = rename_file(&src, &dst, dry_run);
+                    app.push_log(format!(
+                        "✓ {} -> {}",
+                        src.to_string_lossy(),
+                        dst.to_string_lossy(),
+                    ));
                     app.files[app.current] = FileState::Approved { path };
                     app.current += 1;
                 }
@@ -849,6 +875,7 @@ fn handle_confirm_input(
                     if !dry_run {
                         let _ = std::fs::remove_file(&src);
                     }
+                    app.push_log(format!("✕ {}", src.to_string_lossy()));
                     app.files[app.current] = FileState::Deleted { path };
                     app.current += 1;
                 }
@@ -872,21 +899,29 @@ fn render(
     confirm_selection: usize,
     tag_text: &str,
 ) {
+    // Vertical layout: main content + log panel
     let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(6)])
         .split(frame.area());
+    let main_area = chunks[0];
+    let log_area = chunks[1];
 
-    // File list (left panel)
-    widgets::render_file_list(frame, chunks[0], &app.files, app.current);
-
-    // Main panel (right panel)
+    // --- Main area: file list on left, modal content on right ---
     let mode_label = match app.mode {
         Mode::Movies => "Movies",
         Mode::Shows => "Shows",
     };
 
-    let main_block = Block::default()
+    let file_list_area = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+        .split(main_area);
+
+    widgets::render_file_list(frame, file_list_area[0], &app.files, app.current);
+
+    // Right area (with its own block)
+    let right_block = Block::default()
         .title(format!(
             "{}  [{}]",
             mode_label,
@@ -894,63 +929,57 @@ fn render(
         ))
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded);
-    let main_inner = main_block.inner(chunks[1]);
-    frame.render_widget(main_block, chunks[1]);
+    let right_inner = right_block.inner(file_list_area[1]);
+    frame.render_widget(right_block, file_list_area[1]);
 
+    // Modals are rendered over the full main_area (so they can overlap both
+    // panels if desired), but we keep the right-inner for non-modal text.
     if let Some(state) = app.current_file() {
         match state {
             FileState::Pending { .. } | FileState::ReadMkv { .. } => {
                 let para = Paragraph::new("Processing...");
-                frame.render_widget(para, main_inner);
+                frame.render_widget(para, right_inner);
             }
             FileState::SearchInput { query, .. } => {
-                let popup = widgets::centered_rect(60, 20, main_inner);
-                widgets::render_search_input(frame, popup, query, "Enter search text:");
+                widgets::render_search_input(frame, right_inner, query, "Enter search text:");
             }
             FileState::Searching { query, .. } => {
-                let popup = widgets::centered_rect(40, 15, main_inner);
-                widgets::render_loading(frame, popup, &format!("Searching \"{}\"", query));
+                widgets::render_loading(frame, right_inner, &format!("Searching \"{}\"", query));
             }
             FileState::SelectMovie { results, .. } => {
-                let popup = widgets::centered_rect(70, 60, main_inner);
                 widgets::render_select_list(
-                    frame, popup, "Select Movie",
+                    frame, right_inner, "Select Movie",
                     results, list_selection, true,
                 );
             }
             FileState::SelectShow { results, .. } => {
-                let popup = widgets::centered_rect(70, 60, main_inner);
                 widgets::render_select_list(
-                    frame, popup, "Select TV Show",
+                    frame, right_inner, "Select TV Show",
                     results, list_selection, true,
                 );
             }
             FileState::SelectSeason { seasons, .. } => {
-                let popup = widgets::centered_rect(70, 60, main_inner);
                 widgets::render_select_list(
-                    frame, popup, "Select Season",
+                    frame, right_inner, "Select Season",
                     seasons, list_selection, true,
                 );
             }
             FileState::SelectEpisode { episodes, .. } => {
-                let popup = widgets::centered_rect(70, 60, main_inner);
                 widgets::render_select_list(
-                    frame, popup, "Select Episode",
+                    frame, right_inner, "Select Episode",
                     episodes, list_selection, true,
                 );
             }
             FileState::TagInput { movie, dst, default_tag, tag, .. } => {
-                let popup = widgets::centered_rect(50, 25, main_inner);
                 widgets::render_tag_input(
-                    frame, popup,
+                    frame, right_inner,
                     if tag.is_empty() { default_tag } else { tag },
                     default_tag,
                 );
             }
             FileState::ConfirmMovie { movie, src, dst, exists, .. } => {
-                let popup = widgets::centered_rect(70, 30, main_inner);
                 widgets::render_confirm_dialog(
-                    frame, popup,
+                    frame, right_inner,
                     &format!("{} ({})", movie.title, movie.year),
                     &src.to_string_lossy(),
                     &dst.to_string_lossy(),
@@ -960,9 +989,8 @@ fn render(
                 );
             }
             FileState::ConfirmEpisode { show, episode_num, src, dst, exists, .. } => {
-                let popup = widgets::centered_rect(70, 30, main_inner);
                 widgets::render_confirm_dialog(
-                    frame, popup,
+                    frame, right_inner,
                     &format!("{} S{:02}E{:02}", show.name, 0, episode_num),
                     &src.to_string_lossy(),
                     &dst.to_string_lossy(),
@@ -974,12 +1002,15 @@ fn render(
             FileState::Done { .. } | FileState::Approved { .. }
             | FileState::Skipped { .. } | FileState::Deleted { .. } => {
                 let para = Paragraph::new("Done");
-                frame.render_widget(para, main_inner);
+                frame.render_widget(para, right_inner);
             }
             FileState::Failed { error, .. } => {
                 let para = Paragraph::new(format!("Error: {}", error));
-                frame.render_widget(para, main_inner);
+                frame.render_widget(para, right_inner);
             }
         }
     }
+
+    // --- Log panel ---
+    widgets::render_log_panel(frame, log_area, &app.log);
 }
