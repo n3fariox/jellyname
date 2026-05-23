@@ -1,0 +1,59 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [main, rust-conversion]
+    paths:
+      - jellyname-rs/**
+  pull_request:
+    branches: [main]
+    paths:
+      - jellyname-rs/**
+
+defaults:
+  run:
+    working-directory: jellyname-rs
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: jellyname-rs
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: jellyname-rs
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: jellyname-x86_64-linux
+          path: jellyname-rs/target/release/jellyname-rs
+          if-no-files-found: error
