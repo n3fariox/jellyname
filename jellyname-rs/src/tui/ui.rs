@@ -34,10 +34,8 @@ fn spawn_input_thread(tx: mpsc::UnboundedSender<TuiEvent>) {
     std::thread::spawn(move || {
         loop {
             match crossterm::event::read() {
-                Ok(crossterm::event::Event::Key(key)) => {
-                    if tx.send(TuiEvent::Key(key)).is_err() {
-                        break;
-                    }
+                Ok(crossterm::event::Event::Key(key)) if tx.send(TuiEvent::Key(key)).is_err() => {
+                    break;
                 }
                 Ok(crossterm::event::Event::Resize(..)) => {
                     // wake render loop on resize
@@ -659,7 +657,7 @@ pub async fn run_tui(
                                     match confirm_selection {
                                         0 => {
                                             // Yes
-                                            rename_file(&src, &dst, dry_run).ok();
+                                            rename_file(src, dst, dry_run).ok();
                                             app.push_log(format!(
                                                 "✓ {} -> {}",
                                                 src.to_string_lossy(),
@@ -673,7 +671,7 @@ pub async fn run_tui(
                                         1 if n_buttons == 4 => {
                                             // Yes to All
                                             app.approve_all = true;
-                                            rename_file(&src, &dst, dry_run).ok();
+                                            rename_file(src, dst, dry_run).ok();
                                             app.push_log(format!(
                                                 "✓ {} -> {}",
                                                 src.to_string_lossy(),
@@ -701,7 +699,7 @@ pub async fn run_tui(
                                         _ => {
                                             // Delete
                                             if !dry_run {
-                                                std::fs::remove_file(&src).ok();
+                                                std::fs::remove_file(src).ok();
                                             }
                                             app.push_log(format!("✕ {}", src.to_string_lossy()));
                                             app.files[app.current] =
@@ -832,6 +830,7 @@ fn handle_text_input(key: KeyEvent, text: &mut String) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_confirm_input(
     key: KeyEvent,
     selection: &mut usize,

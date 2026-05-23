@@ -152,6 +152,7 @@ pub fn render_select_list<T: std::fmt::Display>(
     frame.render_widget(para, inner);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_confirm_dialog(
     frame: &mut Frame,
     area: Rect,

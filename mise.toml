@@ -1,0 +1,32 @@
+[tools]
+rust = "1.95.0"
+
+[tasks.check]
+depends = ["fmt", "lint", "test"]
+description = "Run all CI checks"
+run = "echo 'all checks passed'"
+
+[tasks.fmt]
+description = "Check formatting"
+dir = "jellyname-rs"
+run = "cargo fmt --all --check"
+
+[tasks.lint]
+description = "Run clippy lints"
+dir = "jellyname-rs"
+run = "cargo clippy --all-targets -- -D warnings"
+
+[tasks.test]
+description = "Run tests"
+dir = "jellyname-rs"
+run = "cargo test"
+
+[tasks.build-release]
+description = "Build release binary"
+dir = "jellyname-rs"
+run = "cargo build --release"
+
+[tasks.fix]
+description = "Auto-fix formatting and clippy issues"
+dir = "jellyname-rs"
+run = "cargo fmt --all && cargo clippy --all-targets --fix --allow-dirty --allow-staged"

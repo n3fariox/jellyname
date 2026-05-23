@@ -11,7 +11,7 @@ pub fn fix_title(title: &str) -> String {
 pub fn guess_title(filename: &std::path::Path) -> String {
     filename
         .parent()
-        .and_then(|p| p.iter().last())
+        .and_then(|p| p.iter().next_back())
         .map(|s| s.to_string_lossy().to_lowercase().replace('_', " "))
         .unwrap_or_default()
 }
