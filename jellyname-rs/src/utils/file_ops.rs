@@ -11,13 +11,3 @@ pub fn rename_file(src: &Path, dst: &Path, dry_run: bool) -> Result<()> {
     }
     Ok(())
 }
-
-pub fn supported_extensions() -> &'static [&'static str] {
-    &["mkv"]
-}
-
-pub fn has_supported_ext(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| supported_extensions().contains(&e))
-}

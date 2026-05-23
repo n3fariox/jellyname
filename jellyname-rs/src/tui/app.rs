@@ -67,7 +67,6 @@ pub enum FileState {
         dst: PathBuf,
         exists: bool,
     },
-    Done { path: PathBuf },
     Failed { path: PathBuf, error: String },
     Approved { path: PathBuf },
     Skipped { path: PathBuf },
@@ -78,9 +77,7 @@ pub enum FileState {
 pub struct ShowCache {
     pub name: String,
     pub first_year: String,
-    pub last_year: String,
     pub tmdb_id: u64,
-    pub episodes: u32,
 }
 
 pub struct TuiApp {

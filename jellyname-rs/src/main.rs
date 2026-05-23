@@ -88,7 +88,7 @@ async fn main() -> Result<()> {
             let app = TuiApp::new(Mode::Movies, paths, cli.dry_run, false);
             run_tui(app, tmdb, output, format, cli.dry_run, filters).await?;
         }
-        cli::Command::Shows { format, output, directories, mixed, same_show } => {
+        cli::Command::Shows { format, output, directories, mixed, same_show: _ } => {
             let dirs = resolve_directories(&directories)?;
             if dirs.is_empty() {
                 tracing::warn!("No valid directories found");

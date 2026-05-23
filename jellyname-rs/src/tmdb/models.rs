@@ -21,7 +21,6 @@ pub struct TvSearchResult {
     pub last_year: String,
     pub tmdb_id: u64,
     pub seasons: Vec<TvSeasonResult>,
-    pub episodes: u32,
 }
 
 impl fmt::Display for TvSearchResult {
@@ -35,8 +34,6 @@ pub struct TvSeasonResult {
     pub name: String,
     pub season_number: u32,
     pub episode_count: u32,
-    pub year: String,
-    pub tmdb_id: u64,
 }
 
 impl fmt::Display for TvSeasonResult {
@@ -50,8 +47,6 @@ pub struct EpisodeResult {
     pub name: String,
     pub episode_number: u32,
     pub air_date: String,
-    pub overview: String,
-    pub tmdb_id: u64,
 }
 
 impl fmt::Display for EpisodeResult {

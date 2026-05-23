@@ -66,15 +66,8 @@ impl TmdbClient {
                         name: s.inner.name.clone(),
                         season_number: s.inner.season_number as u32,
                         episode_count: s.episode_count as u32,
-                        year: s
-                            .inner
-                            .air_date
-                            .map(|d| d.format("%Y").to_string())
-                            .unwrap_or_else(|| "N/A".to_string()),
-                        tmdb_id: s.inner.id,
                     })
                     .collect(),
-                episodes: info.number_of_episodes.unwrap_or(0) as u32,
             });
         }
         Ok(out)
@@ -99,8 +92,6 @@ impl TmdbClient {
                     .air_date
                     .map(|d| d.format("%Y").to_string())
                     .unwrap_or_else(|| "N/A".to_string()),
-                overview: ep.inner.overview.clone().unwrap_or_default(),
-                tmdb_id: ep.inner.id,
             })
             .collect())
     }

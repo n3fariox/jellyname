@@ -126,18 +126,11 @@ pub async fn run_tui(
                                 .unwrap_or("mkv");
                             let show = crate::models::show::TVShow {
                                 name: show_cache.name.clone(),
-                                seasons: vec![],
-                                episodes: show_cache.episodes,
                                 tmdb_id: show_cache.tmdb_id,
                                 first_year: show_cache.first_year.clone(),
-                                last_year: show_cache.last_year.clone(),
                             };
                             let season = crate::models::show::TVSeason {
-                                name: season_cache.name.clone(),
                                 season_number: season_cache.season_number,
-                                episode_count: season_cache.episode_count,
-                                year: season_cache.year.clone(),
-                                tmdb_id: season_cache.tmdb_id,
                             };
                             let dst = crate::processor::shows::compute_episode_dst(
                                 &output_dir,
@@ -366,18 +359,14 @@ pub async fn run_tui(
                                         app.show_cache = Some(ShowCache {
                                             name: r.name.clone(),
                                             first_year: r.first_year.clone(),
-                                            last_year: r.last_year.clone(),
                                             tmdb_id: r.tmdb_id,
-                                            episodes: r.episodes,
                                         });
                                         app.files[app.current] = FileState::SelectSeason {
                                             path: path.clone(),
                                             show: ShowCache {
                                                 name: r.name.clone(),
                                                 first_year: r.first_year.clone(),
-                                                last_year: r.last_year.clone(),
                                                 tmdb_id: r.tmdb_id,
-                                                episodes: r.episodes,
                                             },
                                             seasons: r.seasons.clone(),
                                         };
@@ -450,18 +439,11 @@ pub async fn run_tui(
                                                 .unwrap_or("mkv");
                                             let tv_show = crate::models::show::TVShow {
                                                 name: show.name.clone(),
-                                                seasons: vec![],
-                                                episodes: show.episodes,
                                                 tmdb_id: show.tmdb_id,
                                                 first_year: show.first_year.clone(),
-                                                last_year: show.last_year.clone(),
                                             };
                                             let tv_season = crate::models::show::TVSeason {
-                                                name: s.name.clone(),
                                                 season_number: s.season_number,
-                                                episode_count: s.episode_count,
-                                                year: s.year.clone(),
-                                                tmdb_id: s.tmdb_id,
                                             };
                                             let dst = crate::processor::shows::compute_episode_dst(
                                                 &output_dir,
@@ -522,20 +504,13 @@ pub async fn run_tui(
                                             &output_dir,
                                             &format,
                                             &crate::models::show::TVShow {
-                                                name: show.name.clone(),
-                                                first_year: show.first_year.clone(),
-                                                last_year: show.last_year.clone(),
-                                                tmdb_id: show.tmdb_id,
-                                                seasons: vec![],
-                                                episodes: show.episodes,
-                                            },
-                                            &crate::models::show::TVSeason {
-                                                name: season.name.clone(),
-                                                season_number: season.season_number,
-                                                episode_count: season.episode_count,
-                                                year: season.year.clone(),
-                                                tmdb_id: season.tmdb_id,
-                                            },
+                                                 name: show.name.clone(),
+                                                 first_year: show.first_year.clone(),
+                                                 tmdb_id: show.tmdb_id,
+                                             },
+                                             &crate::models::show::TVSeason {
+                                                 season_number: season.season_number,
+                                             },
                                             ep.episode_number,
                                             ext,
                                         )
@@ -640,7 +615,7 @@ pub async fn run_tui(
                                 confirm_selection = 0;
                             }
                         }
-                        FileState::ConfirmMovie { path, movie, src, dst, exists } => {
+                        FileState::ConfirmMovie { path, movie: _, src, dst, exists: _ } => {
                             handle_confirm_input(
                                 key,
                                 &mut confirm_selection,
@@ -653,7 +628,7 @@ pub async fn run_tui(
                             );
                             // Log is pushed inside handle_confirm_input
                         }
-                        FileState::ConfirmEpisode { path, show, episode_num, src, dst, exists } => {
+                        FileState::ConfirmEpisode { path, show: _, episode_num: _, src, dst, exists: _ } => {
                             let has_show_cache = app.show_cache.is_some();
                             let buttons = if app.approve_all || !has_show_cache {
                                 vec!["Yes", "Skip", "Delete"]
@@ -897,12 +872,12 @@ fn render(
     app: &TuiApp,
     list_selection: usize,
     confirm_selection: usize,
-    tag_text: &str,
+    _tag_text: &str,
 ) {
     // Vertical layout: main content + log panel
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(6)])
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
         .split(frame.area());
     let main_area = chunks[0];
     let log_area = chunks[1];
@@ -970,7 +945,7 @@ fn render(
                     episodes, list_selection, true,
                 );
             }
-            FileState::TagInput { movie, dst, default_tag, tag, .. } => {
+            FileState::TagInput { movie: _, dst: _, default_tag, tag, .. } => {
                 widgets::render_tag_input(
                     frame, right_inner,
                     if tag.is_empty() { default_tag } else { tag },
@@ -999,7 +974,7 @@ fn render(
                     confirm_selection,
                 );
             }
-            FileState::Done { .. } | FileState::Approved { .. }
+            FileState::Approved { .. }
             | FileState::Skipped { .. } | FileState::Deleted { .. } => {
                 let para = Paragraph::new("Done");
                 frame.render_widget(para, right_inner);
