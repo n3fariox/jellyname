@@ -19,7 +19,7 @@ pub struct Cli {
     pub filter_lang: Option<String>,
 
     #[arg(short = 'k', long = "api-key", env = "TMDB_API_KEY")]
-    pub api_key: String,
+    pub api_key: Option<String>,
 
     #[command(subcommand)]
     pub cmd: Command,
@@ -52,5 +52,13 @@ pub enum Command {
 
         #[arg(required = true)]
         directories: Vec<String>,
+    },
+    Conv {
+        /// Directory containing MKV files to convert
+        folder: PathBuf,
+
+        /// Path to profiles.yml (uses built-in defaults if not found)
+        #[arg(long, default_value = "profiles.yml")]
+        profiles: PathBuf,
     },
 }
