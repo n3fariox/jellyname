@@ -109,7 +109,7 @@ def identify_tv_show(filename: Path, title=None, manual=False) -> Optional[TVSho
                     season_number=season["season_number"],
                     episode_count=season["episode_count"],
                     year=air_date.split("-")[0] if air_date is not None else "N/A",
-                    source_id=s["id"],
+                    source_id=season["id"],
                 )
             )
         shows.append(
@@ -182,27 +182,40 @@ def identify_tv_show_tvdb(filename: Path, tvdb_id: int) -> Optional[TVShow]:
             ).run()
             use_dvd_order = choice if choice is not None else False
 
-        # Fetch all episodes with the chosen ordering
-        episodes_url = f"https://api.thetvdb.com/series/{tvdb_id}/episodes"
+        # Fetch all episodes with the chosen ordering (paginated, 100/page)
         if use_dvd_order:
-            episodes_url += "/query?dvdSeason=1"
+            episodes_url = f"https://api.thetvdb.com/series/{tvdb_id}/episodes/query"
+            base_params = {"dvdSeason": 1}
+        else:
+            episodes_url = f"https://api.thetvdb.com/series/{tvdb_id}/episodes"
+            base_params = {}
 
-        episodes_response = requests.get(episodes_url, timeout=10)
+        all_episodes = []
+        page = 1
+        while True:
+            params = {**base_params, "page": page}
+            episodes_response = requests.get(episodes_url, params=params, timeout=10)
+            if episodes_response.status_code != 200:
+                break
+            body = episodes_response.json()
+            all_episodes.extend(body.get("data", []))
+            next_page = body.get("links", {}).get("next")
+            if not next_page:
+                break
+            page = next_page
+
         episodes_data = {}
-        if episodes_response.status_code == 200:
-            all_episodes = episodes_response.json().get("data", [])
-
-            if use_dvd_order:
-                # For DVD order, episodes are flat in the response
-                episodes_data[1] = all_episodes
-            else:
-                # For aired order, organize by season
-                for ep in all_episodes:
-                    season_num = ep.get("airedSeason")
-                    if season_num is not None:
-                        if season_num not in episodes_data:
-                            episodes_data[season_num] = []
-                        episodes_data[season_num].append(ep)
+        if use_dvd_order:
+            # For DVD order, episodes are flat in the response
+            episodes_data[1] = all_episodes
+        else:
+            # For aired order, organize by season
+            for ep in all_episodes:
+                season_num = ep.get("airedSeason")
+                if season_num is not None:
+                    if season_num not in episodes_data:
+                        episodes_data[season_num] = []
+                    episodes_data[season_num].append(ep)
 
         # Build seasons list with episodes
         seasons = []
