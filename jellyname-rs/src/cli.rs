@@ -4,7 +4,7 @@ use std::path::PathBuf;
 const DEFAULT_MOVIE_FORMAT: &str =
     "{title} ({year}) [tmdbid-{tmdb_id}]/{title} ({year}) [tmdbid-{tmdb_id}]{tag}.{ext}";
 
-const DEFAULT_TV_FORMAT: &str = "{name} ({first_year}) [tmdbid-{tmdb_id}]/Season {season_num:02}/{name} S{season_num:02}E{episode_num:02}.{ext}";
+const DEFAULT_TV_FORMAT: &str = "{name} ({first_year}) [{source}-{source_id}]/Season {season_num:02}/{name} S{season_num:02}E{episode_num:02}.{ext}";
 
 #[derive(Debug, Parser)]
 #[command(
@@ -49,6 +49,10 @@ pub enum Command {
 
         #[arg(long = "same-show")]
         same_show: bool,
+
+        /// TVDB series ID (lookup at thetvdb.com). When provided, uses TVDB instead of TMDB.
+        #[arg(long = "tvdb-id")]
+        tvdb_id: Option<u64>,
 
         #[arg(required = true)]
         directories: Vec<String>,

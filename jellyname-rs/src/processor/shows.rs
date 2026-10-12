@@ -15,7 +15,8 @@ pub fn compute_episode_dst(
     let mut ctx = HashMap::new();
     ctx.insert("name".to_string(), show.name.clone());
     ctx.insert("first_year".to_string(), show.first_year.clone());
-    ctx.insert("tmdb_id".to_string(), show.tmdb_id.to_string());
+    ctx.insert("source".to_string(), show.source.clone());
+    ctx.insert("source_id".to_string(), show.source_id.to_string());
     ctx.insert(
         "season_num".to_string(),
         format!("{:02}", season.season_number),

@@ -6,6 +6,7 @@ pub struct TVSeason {
 #[derive(Debug, Clone)]
 pub struct TVShow {
     pub name: String,
-    pub tmdb_id: u64,
+    pub source: String,
+    pub source_id: u64,
     pub first_year: String,
 }

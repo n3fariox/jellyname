@@ -39,6 +39,12 @@ pub enum FileState {
         path: PathBuf,
         results: Vec<TvSearchResult>,
     },
+    SelectTvdbOrder {
+        path: PathBuf,
+        name: String,
+        first_year: String,
+        tvdb_id: u64,
+    },
     SelectSeason {
         path: PathBuf,
         show: super::ShowCache,
@@ -91,7 +97,8 @@ pub enum FileState {
 pub struct ShowCache {
     pub name: String,
     pub first_year: String,
-    pub tmdb_id: u64,
+    pub source: String,
+    pub source_id: u64,
 }
 
 pub struct TuiApp {
@@ -102,6 +109,11 @@ pub struct TuiApp {
     pub approve_all: bool,
     pub dry_run: bool,
     pub mixed: bool,
+    pub tvdb_id: Option<u64>,
+    /// (name, first_year) stashed between the TVDB show-summary fetch and
+    /// the follow-up episodes fetch, since neither the order-choice nor
+    /// the loading state carries show metadata.
+    pub tvdb_pending: Option<(String, String)>,
     pub show_cache: Option<ShowCache>,
     pub season_cache: Option<TvSeasonResult>,
     pub episode_num: u32,
@@ -110,7 +122,13 @@ pub struct TuiApp {
 }
 
 impl TuiApp {
-    pub fn new(mode: Mode, files: Vec<PathBuf>, dry_run: bool, mixed: bool) -> Self {
+    pub fn new(
+        mode: Mode,
+        files: Vec<PathBuf>,
+        dry_run: bool,
+        mixed: bool,
+        tvdb_id: Option<u64>,
+    ) -> Self {
         Self {
             mode,
             files: files
@@ -122,6 +140,8 @@ impl TuiApp {
             approve_all: false,
             dry_run,
             mixed,
+            tvdb_id,
+            tvdb_pending: None,
             show_cache: None,
             season_cache: None,
             episode_num: 0,

@@ -42,6 +42,10 @@ pub struct TvSeasonResult {
     pub name: String,
     pub season_number: u32,
     pub episode_count: u32,
+    /// Episodes already fetched for this season (e.g. from TVDB, which
+    /// returns the whole show's episodes up front). Empty when episodes
+    /// still need to be fetched on demand (the TMDB per-season flow).
+    pub episodes: Vec<EpisodeResult>,
 }
 
 impl fmt::Display for TvSeasonResult {

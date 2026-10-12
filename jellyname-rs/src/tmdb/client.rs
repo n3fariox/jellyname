@@ -66,6 +66,7 @@ impl TmdbClient {
                         name: s.inner.name.clone(),
                         season_number: s.inner.season_number as u32,
                         episode_count: s.episode_count as u32,
+                        episodes: Vec::new(),
                     })
                     .collect(),
             });

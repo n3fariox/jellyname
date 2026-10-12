@@ -4,6 +4,7 @@ mod models;
 mod processor;
 mod tmdb;
 mod tui;
+mod tvdb;
 mod utils;
 
 use std::path::PathBuf;
@@ -18,6 +19,7 @@ use models::filters::Filters;
 use tmdb::client::TmdbClient;
 use tui::app::{Mode, TuiApp};
 use tui::run_tui;
+use tvdb::client::TvdbClient;
 
 fn resolve_files(patterns: &[String]) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
@@ -77,6 +79,7 @@ async fn main() -> Result<()> {
         lang: cli.filter_lang,
     };
     let tmdb = Arc::new(TmdbClient::new(&cli.api_key));
+    let tvdb = Arc::new(TvdbClient::new());
 
     match cli.cmd {
         cli::Command::Movies {
@@ -91,8 +94,8 @@ async fn main() -> Result<()> {
             }
             tracing::info!("Found {} MKV files", paths.len());
 
-            let app = TuiApp::new(Mode::Movies, paths, cli.dry_run, false);
-            run_tui(app, tmdb, output, format, cli.dry_run, filters).await?;
+            let app = TuiApp::new(Mode::Movies, paths, cli.dry_run, false, None);
+            run_tui(app, tmdb, tvdb, output, format, cli.dry_run, filters).await?;
         }
         cli::Command::Shows {
             format,
@@ -100,6 +103,7 @@ async fn main() -> Result<()> {
             directories,
             mixed,
             same_show: _,
+            tvdb_id,
         } => {
             let dirs = resolve_directories(&directories)?;
             if dirs.is_empty() {
@@ -125,8 +129,8 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
 
-            let app = TuiApp::new(Mode::Shows, all_files, cli.dry_run, mixed);
-            run_tui(app, tmdb, output, format, cli.dry_run, filters).await?;
+            let app = TuiApp::new(Mode::Shows, all_files, cli.dry_run, mixed, tvdb_id);
+            run_tui(app, tmdb, tvdb, output, format, cli.dry_run, filters).await?;
         }
     }
 

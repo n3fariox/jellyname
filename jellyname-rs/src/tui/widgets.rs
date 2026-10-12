@@ -34,6 +34,7 @@ pub fn render_file_list(
                 | super::app::FileState::Searching { path, .. }
                 | super::app::FileState::SelectMovie { path, .. }
                 | super::app::FileState::SelectShow { path, .. }
+                | super::app::FileState::SelectTvdbOrder { path, .. }
                 | super::app::FileState::SelectSeason { path, .. }
                 | super::app::FileState::SelectEpisode { path, .. }
                 | super::app::FileState::TagInput { path, .. }
